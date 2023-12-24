@@ -2,9 +2,11 @@
 #include <math.h>
 #include <random>
 #include <ctime> 
+#include <iostream>
+#include <windows.h>
+#include <mmsystem.h>
+#include <SFML/Audio.hpp>
 #include <glut.h>
-//#include <Windows.h>
-//#include <mmsystem.h>
 int keyX = 450;
 int keyY = 350;
 
@@ -22,13 +24,13 @@ int CollectableY[CollectableNumber];
 
 int HP = 5;
 
-int TimePowerUpX = (rand() % 70 + 10) * 10;
-int TimePowerUpY = (rand() % 50 + 10) * 10;
+int TimePowerUpX = 0;
+int TimePowerUpY = 0;
 bool startFreezeTimerPowerUpTimer = false;
 int freezeTimeCountDown = 10;
 
-int ScoreMultiplierPowerUpX = (rand() % 70 + 10) * 10;
-int ScoreMultiplierPowerUpY = (rand() % 50 + 10) * 10;
+int ScoreMultiplierPowerUpX = 0;
+int ScoreMultiplierPowerUpY = 0;
 int scoreMultiplier = 1;
 bool startPowerUpTimer = false;
 int powerUpCountDown = 10;
@@ -39,7 +41,7 @@ bool AreCollectablesSpawned = false;
 bool reachedGoal = false;
 
 //animations
-float playerRotation = 0.0f;  
+float playerRotation = 0.0f;
 float collectableRotationAngle = 0.0f;
 float timePowerUpRotationAngle = 0.0f;
 float scorePowerUpRotationAngle = 0.0f;
@@ -47,7 +49,20 @@ float goalRotationAngle = 0.0f;
 float backgroundRotationAngle = 0.0f;
 
 //BONUS
+sf::Sound gameMusicSound;
+sf::SoundBuffer gameMusicBuffer;
 
+sf::Sound collectableSound;
+sf::SoundBuffer collectableSoundBuffer;
+
+sf::Sound gameEndSound;
+sf::SoundBuffer gameEndSoundBuffer;
+
+sf::Sound gameWinSound;
+sf::SoundBuffer gameWinSoundBuffer;
+
+sf::Sound goalSound;
+sf::SoundBuffer goalSoundBuffer;
 
 void print(int x, int y, char* string)
 {
@@ -65,9 +80,9 @@ void drawX(int x, int y) {
 	glColor3f(1.0, 0.0, 0.0);
 	glBegin(GL_LINES);
 	glVertex2f(x, y);
-	glVertex2f(x+50, y+50);
+	glVertex2f(x + 50, y + 50);
 	glVertex2f(x + 50, y);
-	glVertex2f(x, y+50);
+	glVertex2f(x, y + 50);
 	glEnd();
 	glLineWidth(1.0);
 }
@@ -84,10 +99,10 @@ void drawObstacle(int x, int y) {
 	glColor3f(1.0, 0.0, 0.0);
 	drawRect(x, y, 80, 50);
 	glColor3f(0.0, 0.0, 0.0);
-	drawRect(x+5, y+5, 70, 40);
+	drawRect(x + 5, y + 5, 70, 40);
 	glColor3f(1.0, 0.0, 0.0);
-	glLineWidth(2.0);  
-	for (int i = 0; i < 70; i+=10) {
+	glLineWidth(2.0);
+	for (int i = 0; i < 70; i += 10) {
 		glBegin(GL_LINES);
 		glVertex2f(x + 10 + i, y);
 		glVertex2f(x + 10 + i, y + 50);
@@ -215,7 +230,7 @@ void drawCollectable(float x, float y, float rotationAngle) {
 }
 void spawnCollectables() {
 	for (int i = 0; i < CollectableNumber; i++) {
-		drawCollectable(CollectableX[i], CollectableY[i] , collectableRotationAngle);
+		drawCollectable(CollectableX[i], CollectableY[i], collectableRotationAngle);
 	}
 }
 void drawTimePowerUp(float rotationAngle) {
@@ -223,7 +238,7 @@ void drawTimePowerUp(float rotationAngle) {
 
 	glPushMatrix();
 	glTranslatef(TimePowerUpX, TimePowerUpY, 0.0);
-	glRotatef(rotationAngle, 0.0, 0.0, 1.0); 
+	glRotatef(rotationAngle, 0.0, 0.0, 1.0);
 	drawCircle(0, 0, 20);
 
 	glColor3f(0, 0, 0);
@@ -248,7 +263,7 @@ void drawScoreMultiplierPowerUp(float rotationAngle) {
 
 	glPushMatrix();
 	glTranslatef(ScoreMultiplierPowerUpX, ScoreMultiplierPowerUpY, 0.0);
-	glRotatef(rotationAngle, 0.0, 0.0, 1.0); 
+	glRotatef(rotationAngle, 0.0, 0.0, 1.0);
 	drawCircle(0, 0, 20);
 
 	glColor3f(0, 0, 0);
@@ -353,21 +368,24 @@ void drawPlayer(int x, int y) {
 
 void drawBackground(float rotationAngle) {
 	glPushMatrix();
-	glRotatef(rotationAngle, 0.0, 0.0, 1.0); 
-	//glColor3f(1.0, 1.0, 1.0);
-	glColor4f(0.7, 0.7, 0.7, 0.3); 
+	glRotatef(rotationAngle, 0.0, 0.0, 1.0);
+	float red = 255.0 / 255.0;
+	float green = 215.0 / 255.0;
+	float blue = 150.0 / 255.0;
+	glColor3f(red, green, blue);
 	drawCircle(600, 600, 500);
 	drawRect(0, 0, 300, 300);
 	glPopMatrix();
 }
 
+
 void Display() {
 
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	if (HP <= 0 || countdownTime == 0) {
-		glClearColor(1.0f, 0.0f, 0.0f, 1.0f);  
-		//glClear(GL_COLOR_BUFFER_BIT);
+
+	if ((HP <= 0 || countdownTime == 0) && !reachedGoal) {
+		glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
 		glColor3f(1, 1, 1);
 		char* p0s[20];
 		sprintf((char*)p0s, "GAME OVER");
@@ -375,11 +393,9 @@ void Display() {
 		char* p1s[20];
 		sprintf((char*)p1s, "Ending Score: %d", score);
 		print(300, 300, (char*)p1s);
-		//glFlush();
 	}
 	else if (reachedGoal) {
 		glClearColor(0.0f, 1.0f, 0.0f, 1.0f);
-		//glClear(GL_COLOR_BUFFER_BIT);
 		glColor3f(0, 0, 0);
 		char* p0s[20];
 		sprintf((char*)p0s, "YOU REACHED THE GOAL YOU WON!");
@@ -387,7 +403,6 @@ void Display() {
 		char* p1s[20];
 		sprintf((char*)p1s, "Ending Score: %d", score);
 		print(300, 300, (char*)p1s);
-		//glFlush();
 	}
 	else {
 		drawBackground(backgroundRotationAngle);
@@ -466,21 +481,21 @@ bool willNotPassThroughObstacle(int x, int y) {
 }
 void checkCollectableCollision(int scoreMultiplier) {
 	for (int i = 0; i <= CollectableNumber; i++) {
-		if ((keyX + 15 >= CollectableX[i]-15 && keyX + 15 <= CollectableX[i] + 15 && keyY + 15 >= CollectableY[i] - 15 && keyY + 15 <= CollectableY[i] + 15)
+		if ((keyX + 15 >= CollectableX[i] - 15 && keyX + 15 <= CollectableX[i] + 15 && keyY + 15 >= CollectableY[i] - 15 && keyY + 15 <= CollectableY[i] + 15)
 			||
 			(keyX - 15 >= CollectableX[i] - 15 && keyX - 15 <= CollectableX[i] + 15 && keyY - 15 >= CollectableY[i] - 15 && keyY - 15 <= CollectableY[i] + 15)) {
-			score = score + (1*scoreMultiplier);
+			score = score + (1 * scoreMultiplier);
 			CollectableX[i] = -500;
 			CollectableY[i] = -500;
-			//bool played = PlaySound("collectable.wav", NULL , SND_ASYNC);
+			collectableSound.play();
 		}
 	}
 }
 
 void checkFreezeTimePowerUpCollision() {
-	if ((keyX + 15 >= TimePowerUpX- 20 && keyX + 15 <= TimePowerUpX + 20 && keyY + 15 >= TimePowerUpY- 20 && keyY + 15 <= TimePowerUpY + 20)
+	if ((keyX + 15 >= TimePowerUpX - 20 && keyX + 15 <= TimePowerUpX + 20 && keyY + 15 >= TimePowerUpY - 20 && keyY + 15 <= TimePowerUpY + 20)
 		||
-		(keyX - 15 >= TimePowerUpX- 20 && keyX - 15 <= TimePowerUpX + 20 && keyY - 15 >= TimePowerUpY- 20 && keyY - 15 <= TimePowerUpY + 20)) {
+		(keyX - 15 >= TimePowerUpX - 20 && keyX - 15 <= TimePowerUpX + 20 && keyY - 15 >= TimePowerUpY - 20 && keyY - 15 <= TimePowerUpY + 20)) {
 		TimePowerUpX = -100;
 		TimePowerUpY = -100;
 		startFreezeTimerPowerUpTimer = true;
@@ -513,7 +528,9 @@ void checkGoalCollision() {
 		||
 		(keyX - 15 >= 750 && keyX - 15 <= 850 && keyY - 15 >= 550 && keyY - 15 <= 600)) {
 		reachedGoal = true;
-		//glutPostRedisplay();
+		gameMusicSound.stop();
+		gameWinSound.play();
+		goalSound.play();
 	}
 }
 
@@ -564,6 +581,11 @@ void key(unsigned char k, int x, int y)
 	checkCollectableCollision(scoreMultiplier);
 	checkScoreMultiplierPowerUpCollision();
 	checkGoalCollision();
+
+	if (HP == 0) {
+		gameMusicSound.stop();
+		gameEndSound.play();
+	}
 	glutPostRedisplay();
 }
 
@@ -577,7 +599,7 @@ void timer(int val)
 		if (freezeTimeCountDown == 0)
 			startFreezeTimerPowerUpTimer = false;
 	}
-	if (startPowerUpTimer && powerUpCountDown !=0) {
+	if (startPowerUpTimer && powerUpCountDown != 0) {
 		powerUpCountDown--;
 	}
 	else {
@@ -588,66 +610,28 @@ void timer(int val)
 	glutTimerFunc(1000, timer, 0);
 }
 
-void collectableAnimation(int val) {
-	collectableRotationAngle += 5.0f;
-	glutPostRedisplay();
-	glutTimerFunc(30, collectableAnimation, 0);
-}
-
-void timePowerUpAnimation(int val) {
-	timePowerUpRotationAngle += 5.0f;
-	glutPostRedisplay();
-	glutTimerFunc(30, timePowerUpAnimation, 0);
-}
-
-void scorePowerUpAnimation(int val) {
-	scorePowerUpRotationAngle += 5.0f;
-	glutPostRedisplay();
-	glutTimerFunc(30, scorePowerUpAnimation, 0);
-}
-
-void goalAnimation(int val) {
-	goalRotationAngle += 5.0f;
-	glutPostRedisplay();
-	glutTimerFunc(100, goalAnimation, 0);
-}
-
-void backgroundAnimation(int val) {
-	backgroundRotationAngle += 5.0f;
-	glutPostRedisplay();
-	glutTimerFunc(1000, backgroundAnimation, 0);
-}
 void Animation() {
-	collectableRotationAngle += 1.0f;
-	timePowerUpRotationAngle += 1.0f;
-	scorePowerUpRotationAngle += 1.0f;
-	goalRotationAngle += 1.0f;
-	backgroundRotationAngle += 1.0f;
+	collectableRotationAngle += 0.5f;
+	timePowerUpRotationAngle += 0.5f;
+	scorePowerUpRotationAngle += 0.5f;
+	goalRotationAngle += 0.1f;
+	backgroundRotationAngle += 0.2f;
 	glutPostRedisplay();
 }
 
-bool isInArray(int array[], int size, int value) {
-	for (int i = 0; i < size; i++) {
-		if (array[i] == value) {
-			return true; 
+bool isPointInsideObstacle(int x, int y) {
+	for (int i = 0; i < ObstacleNumber; i++) {
+		if (x >= ObstacleX[i] && x <= (ObstacleX[i] + 85) && y >= ObstacleY[i] && y <= (ObstacleY[i] + 55)) {
+			return true;
 		}
 	}
-	return false; 
+	return false;
 }
 
 
 void main(int argc, char** argr) {
 	glutInit(&argc, argr);
 	srand(time(NULL));
-	//bool played = PlaySound("game-music.wav", NULL, SND_ASYNC);
-	for (int i = 0; i < CollectableNumber; i++) {
-		CollectableX[i] = (rand() % 70 + 10) * 10;
-	}
-
-	for (int i = 0; i < CollectableNumber; i++) {
-		CollectableY[i] = (rand() % 50 + 10) * 10;
-	}
-
 	ObstacleX[0] = 200;
 	ObstacleY[0] = 400;
 
@@ -663,17 +647,33 @@ void main(int argc, char** argr) {
 	ObstacleX[4] = 500;
 	ObstacleY[4] = 500;
 
+	for (int i = 0; i < CollectableNumber; i++) {
+		CollectableX[i] = (rand() % 70 + 10) * 10;
+		CollectableY[i] = (rand() % 50 + 10) * 10;
+		if (isPointInsideObstacle(CollectableX[i], CollectableY[i]))
+			i--;
+	}
+
+	while (true) {
+		TimePowerUpX = (rand() % 70 + 10) * 10;
+		TimePowerUpY = (rand() % 50 + 10) * 10;
+		if (!isPointInsideObstacle(TimePowerUpX, TimePowerUpY))
+			break;
+	}
+
+	while (true) {
+		ScoreMultiplierPowerUpX = (rand() % 70 + 10) * 10;
+		ScoreMultiplierPowerUpY = (rand() % 50 + 10) * 10;
+		if (!isPointInsideObstacle(TimePowerUpX, TimePowerUpY))
+			break;
+	}
+
 	glutInitWindowSize(900, 700);
 	glutInitWindowPosition(300, 100);
 	glutCreateWindow("2DGame");
 	glutDisplayFunc(Display);
 	glutKeyboardFunc(key);
 	glutTimerFunc(0, timer, 0);
-	//glutTimerFunc(0, collectableAnimation, 0);
-	//glutTimerFunc(0, scorePowerUpAnimation, 0);
-	//glutTimerFunc(0, timePowerUpAnimation, 0);
-	//glutTimerFunc(0, goalAnimation, 0);
-	//glutTimerFunc(0, backgroundAnimation, 0	);
 	glutIdleFunc(Animation);
 
 	glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB);
@@ -683,6 +683,27 @@ void main(int argc, char** argr) {
 
 
 	//BONUS
+	gameMusicBuffer.loadFromFile("game-music.wav");
+	gameMusicSound.setBuffer(gameMusicBuffer);
+	gameMusicSound.setVolume(100.0f);
+	gameMusicSound.play();
+
+	collectableSoundBuffer.loadFromFile("collectable.wav");
+	collectableSound.setBuffer(collectableSoundBuffer);
+	collectableSound.setVolume(100.0f);
+
+	gameEndSoundBuffer.loadFromFile("game-end.wav");
+	gameEndSound.setBuffer(gameEndSoundBuffer);
+	gameEndSound.setVolume(100.0f);
+
+	gameWinSoundBuffer.loadFromFile("game-win.wav");
+	gameWinSound.setBuffer(gameWinSoundBuffer);
+	gameWinSound.setVolume(100.0f);
+
+	goalSoundBuffer.loadFromFile("goal.wav");
+	goalSound.setBuffer(goalSoundBuffer);
+	goalSound.setVolume(100.0f);
+
 
 	glutMainLoop();
 }
